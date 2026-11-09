@@ -1,0 +1,1210 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FleetGuard 360 - Daily Rider & Vehicle Inspection</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0f9ff',
+              500: '#0ea5e9',
+              600: '#0284c7',
+              700: '#0369a1',
+              900: '#0c4a6e',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Supabase JS Client SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    /* Custom CSS Enhancements */
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    }
+    .video-mirror {
+      transform: scaleX(-1);
+    }
+    /* Hide scrollbars for clean UI */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col antialiased">
+
+  <!-- TOP HEADER / NAVBAR -->
+  <header class="border-b border-slate-800 bg-slate-900/90 sticky top-0 z-40 backdrop-blur-md">
+    <div class="max-w-7xl mx-auto px-4 py-3.5 flex flex-col sm:flex-row items-center justify-between gap-3">
+      <div class="flex items-center space-x-3">
+        <div class="p-2.5 bg-gradient-to-tr from-sky-600 to-indigo-600 rounded-xl shadow-lg shadow-sky-500/20">
+          <i data-lucide="bike" class="w-6 h-6 text-white"></i>
+        </div>
+        <div>
+          <div class="flex items-center space-x-2">
+            <h1 class="text-lg font-black tracking-tight text-white">
+              FleetGuard <span class="text-sky-400 font-light">360</span>
+            </h1>
+            <span id="connectionBadge" class="text-[10px] bg-amber-500/20 text-amber-300 font-mono font-semibold px-2 py-0.5 rounded-full border border-amber-500/30">
+              Demo Mode (Config Required)
+            </span>
+          </div>
+          <p class="text-xs text-slate-400">Daily Rider Inspection & Vehicle Tracking System</p>
+        </div>
+      </div>
+
+      <!-- Navigation & Setup Buttons -->
+      <div class="flex items-center space-x-2 w-full sm:w-auto">
+        <div class="flex bg-slate-950 p-1 rounded-xl border border-slate-800 shadow-inner flex-1 sm:flex-none">
+          <button id="tabRiderBtn" onclick="switchTab('rider')" class="flex-1 sm:flex-none flex items-center justify-center space-x-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-sky-600 text-white transition-all shadow-md">
+            <i data-lucide="camera" class="w-3.5 h-3.5"></i>
+            <span>Rider Check-in</span>
+          </button>
+          <button id="tabTlBtn" onclick="switchTab('tl')" class="flex-1 sm:flex-none flex items-center justify-center space-x-1.5 px-4 py-2 text-xs font-semibold rounded-lg text-slate-400 hover:text-white transition-all">
+            <i data-lucide="users" class="w-3.5 h-3.5"></i>
+            <span>TL Ops Portal</span>
+          </button>
+        </div>
+
+        <button onclick="openConfigModal()" class="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl border border-slate-700 transition" title="Supabase API Setup">
+          <i data-lucide="settings" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN CONTENT CONTAINER -->
+  <main class="max-w-7xl mx-auto px-4 py-6 flex-1 w-full">
+
+    <!-- ========================================================================= -->
+    <!-- MODULE 1: RIDER DAILY INSPECTION FORM (MOBILE FIRST)                       -->
+    <!-- ========================================================================= -->
+    <section id="riderSection" class="max-w-xl mx-auto space-y-4">
+      
+      <!-- SUCCESS CONTAINER (HIDDEN INITIALLY) -->
+      <div id="riderSuccessCard" class="hidden bg-slate-900/90 border border-emerald-500/30 rounded-3xl p-6 text-center shadow-2xl space-y-5">
+        <div class="w-16 h-16 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center mx-auto ring-8 ring-emerald-500/10">
+          <i data-lucide="check-circle-2" class="w-10 h-10"></i>
+        </div>
+        <div>
+          <h2 class="text-xl font-bold text-white">Daily Inspection Submitted!</h2>
+          <p id="successRiderSubtext" class="text-slate-400 text-xs mt-1">Vehicle data logged to fleet operations.</p>
+        </div>
+        <div class="p-4 bg-slate-950/80 rounded-2xl text-left border border-slate-800 space-y-2 text-xs font-mono">
+          <div class="flex justify-between border-b border-slate-800 pb-2">
+            <span class="text-slate-500">STATUS:</span>
+            <span id="successStatusVal" class="font-bold text-emerald-400">Working/Active</span>
+          </div>
+          <div id="successReasonRow" class="hidden flex justify-between border-b border-slate-800 pb-2">
+            <span class="text-slate-500">REASON:</span>
+            <span id="successReasonVal" class="text-amber-300 font-bold">--</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-slate-500">PHOTOS VERIFIED:</span>
+            <span class="text-emerald-400 font-bold">5 of 5 Live Snaps ✓</span>
+          </div>
+        </div>
+        <button onclick="resetRiderForm()" class="w-full py-3.5 bg-sky-600 hover:bg-sky-500 text-white font-bold rounded-2xl transition shadow-xl text-xs uppercase tracking-wider">
+          Start New Inspection
+        </button>
+      </div>
+
+      <!-- MAIN FORM CONTAINER -->
+      <div id="riderFormCard" class="bg-slate-900/80 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden backdrop-blur-md">
+        
+        <!-- Header Banner -->
+        <div class="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 p-4 border-b border-slate-800 flex items-center justify-between">
+          <div class="flex items-center space-x-3">
+            <div class="p-2 bg-sky-500/10 border border-sky-500/30 rounded-xl text-sky-400">
+              <i data-lucide="shield-check" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <h2 class="font-bold text-white text-sm">Daily Vehicle Inspection</h2>
+              <p class="text-[11px] text-slate-400">Camera-only live verification</p>
+            </div>
+          </div>
+          <span class="text-[10px] bg-slate-800 text-slate-300 font-mono px-3 py-1 rounded-full border border-slate-700">
+            5 Photos Required
+          </span>
+        </div>
+
+        <form id="riderInspectionForm" onsubmit="handleInspectionSubmit(event)" class="p-5 space-y-6">
+          
+          <!-- STEP 1: PHONE LOOKUP / RIDER MAPPING -->
+          <div class="space-y-3">
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-400">
+              1. Rider Verification & Lookup
+            </label>
+            <div class="relative">
+              <i data-lucide="phone" class="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5"></i>
+              <input
+                type="tel"
+                id="riderPhoneInput"
+                placeholder="Enter 10-digit registered phone number..."
+                oninput="lookupRiderByPhone(this.value)"
+                class="w-full pl-10 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-2xl text-white text-xs focus:outline-none focus:border-sky-500 transition font-mono"
+                required
+              />
+            </div>
+
+            <!-- Mapped Rider Details Card -->
+            <div id="riderBadge" class="hidden p-3.5 bg-emerald-950/40 border border-emerald-500/30 rounded-2xl flex items-center justify-between">
+              <div class="flex items-center space-x-3">
+                <div class="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-xs">
+                  <i data-lucide="user" class="w-5 h-5"></i>
+                </div>
+                <div>
+                  <div id="badgeRiderName" class="text-sm font-bold text-white">--</div>
+                  <div id="badgeVehicleDetails" class="text-xs text-emerald-400 font-mono font-semibold">--</div>
+                </div>
+              </div>
+              <span class="text-[10px] font-bold bg-emerald-500/20 text-emerald-300 px-2.5 py-1 rounded-full border border-emerald-500/30">
+                Mapped ✓
+              </span>
+            </div>
+
+            <!-- Rider Unmapped Warning -->
+            <div id="riderNotFoundWarn" class="hidden p-3 bg-amber-950/30 border border-amber-500/30 rounded-2xl text-amber-300 text-xs flex items-center space-x-2">
+              <i data-lucide="alert-triangle" class="w-4 h-4 shrink-0"></i>
+              <span>Rider phone not found. Ask Team Lead (TL) to deploy/map your phone first.</span>
+            </div>
+          </div>
+
+          <!-- STEP 2: DAILY VEHICLE STATUS & REASON -->
+          <div id="step2Container" class="space-y-4 pt-4 border-t border-slate-800 opacity-50 pointer-events-none transition-all">
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-400">
+              2. Vehicle Operational Status
+            </label>
+
+            <div class="grid grid-cols-2 gap-2.5">
+              <button type="button" onclick="setStatus('Working/Active')" id="statusBtn_Working" class="p-3.5 rounded-2xl border text-left flex items-start space-x-3 bg-sky-600/20 border-sky-500 text-white shadow-lg transition">
+                <i data-lucide="activity" class="w-5 h-5 text-sky-400 shrink-0"></i>
+                <div class="text-xs font-bold">Active / Working</div>
+              </button>
+              <button type="button" onclick="setStatus('Breakdown')" id="statusBtn_Breakdown" class="p-3.5 rounded-2xl border border-slate-800 bg-slate-950 text-slate-400 hover:border-slate-700 text-left flex items-start space-x-3 transition">
+                <i data-lucide="alert-triangle" class="w-5 h-5 text-slate-500 shrink-0"></i>
+                <div class="text-xs font-bold">Breakdown / Issue</div>
+              </button>
+              <button type="button" onclick="setStatus('Servicing')" id="statusBtn_Servicing" class="p-3.5 rounded-2xl border border-slate-800 bg-slate-950 text-slate-400 hover:border-slate-700 text-left flex items-start space-x-3 transition">
+                <i data-lucide="wrench" class="w-5 h-5 text-slate-500 shrink-0"></i>
+                <div class="text-xs font-bold">In Servicing</div>
+              </button>
+              <button type="button" onclick="setStatus('Returned/Idle')" id="statusBtn_Returned" class="p-3.5 rounded-2xl border border-slate-800 bg-slate-950 text-slate-400 hover:border-slate-700 text-left flex items-start space-x-3 transition">
+                <i data-lucide="rotate-ccw" class="w-5 h-5 text-slate-500 shrink-0"></i>
+                <div class="text-xs font-bold">Returned / Idle</div>
+              </button>
+            </div>
+
+            <!-- DYNAMIC RETURN/BREAKDOWN REASON DROPDOWN -->
+            <div id="reasonDropdownContainer" class="hidden p-4 bg-amber-950/20 border border-amber-500/30 rounded-2xl space-y-3">
+              <label class="block text-xs font-bold text-amber-300">
+                Specify Reason for Non-Active Status:
+              </label>
+              <select id="returnReasonSelect" onchange="handleReasonSelectChange(this.value)" class="w-full p-3 bg-slate-950 border border-amber-500/40 rounded-xl text-white text-xs focus:outline-none">
+                <option value="">-- Choose Mandatory Reason --</option>
+                <option value="Engine Failure / Motor Issue">Engine Failure / Motor Issue</option>
+                <option value="Flat Tyre / Wheel Puncture">Flat Tyre / Wheel Puncture</option>
+                <option value="Brake Cable / Pad Failure">Brake Cable / Pad Failure</option>
+                <option value="Battery Drain / Charging Failure">Battery Drain / Charging Failure</option>
+                <option value="Accidental Damage">Accidental Damage</option>
+                <option value="Shift Ended - Parked at Hub">Shift Ended - Parked at Hub</option>
+                <option value="Rider Off-Duty / Leave">Rider Off-Duty / Leave</option>
+                <option value="Periodic Scheduled Servicing">Periodic Scheduled Servicing</option>
+                <option value="Other Reason">Other Reason...</option>
+              </select>
+
+              <textarea id="customReasonText" placeholder="Please describe exact reason..." class="hidden w-full p-3 bg-slate-950 border border-amber-500/40 rounded-xl text-white text-xs focus:outline-none" rows="2"></textarea>
+            </div>
+          </div>
+
+          <!-- STEP 3: STRICT CAMERA-ONLY 5 PHOTO CAPTURE -->
+          <div id="step3Container" class="space-y-4 pt-4 border-t border-slate-800 opacity-50 pointer-events-none transition-all">
+            <div class="flex items-center justify-between">
+              <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-400">
+                  3. Live Camera Photo Verification
+                </label>
+                <p class="text-[11px] text-amber-400 font-mono flex items-center space-x-1 mt-0.5">
+                  <span>🚫 Storage upload blocked. Camera feed only.</span>
+                </p>
+              </div>
+              <span id="photoCountBadge" class="text-xs font-mono font-bold text-sky-400 bg-sky-500/10 px-2.5 py-1 rounded-full border border-sky-500/20">
+                0 / 5 Snaps
+              </span>
+            </div>
+
+            <!-- 5 STEP PHOTO PROGRESS THUMBNAILS -->
+            <div class="grid grid-cols-5 gap-2">
+              <button type="button" onclick="selectStepIndex(0)" id="photoThumb_0" class="relative aspect-square rounded-xl border border-sky-500 bg-sky-950/50 flex flex-col items-center justify-center p-1 text-center transition-all overflow-hidden ring-2 ring-sky-500/40">
+                <i data-lucide="camera" class="w-4 h-4 text-sky-400"></i>
+                <span class="text-[9px] font-semibold mt-1 text-slate-300 truncate w-full">1. Selfie</span>
+              </button>
+              <button type="button" onclick="selectStepIndex(1)" id="photoThumb_1" class="relative aspect-square rounded-xl border border-slate-800 bg-slate-950 opacity-50 flex flex-col items-center justify-center p-1 text-center transition-all overflow-hidden">
+                <i data-lucide="camera" class="w-4 h-4 text-slate-500"></i>
+                <span class="text-[9px] font-semibold mt-1 text-slate-400 truncate w-full">2. Front</span>
+              </button>
+              <button type="button" onclick="selectStepIndex(2)" id="photoThumb_2" class="relative aspect-square rounded-xl border border-slate-800 bg-slate-950 opacity-50 flex flex-col items-center justify-center p-1 text-center transition-all overflow-hidden">
+                <i data-lucide="camera" class="w-4 h-4 text-slate-500"></i>
+                <span class="text-[9px] font-semibold mt-1 text-slate-400 truncate w-full">3. Back</span>
+              </button>
+              <button type="button" onclick="selectStepIndex(3)" id="photoThumb_3" class="relative aspect-square rounded-xl border border-slate-800 bg-slate-950 opacity-50 flex flex-col items-center justify-center p-1 text-center transition-all overflow-hidden">
+                <i data-lucide="camera" class="w-4 h-4 text-slate-500"></i>
+                <span class="text-[9px] font-semibold mt-1 text-slate-400 truncate w-full">4. Left</span>
+              </button>
+              <button type="button" onclick="selectStepIndex(4)" id="photoThumb_4" class="relative aspect-square rounded-xl border border-slate-800 bg-slate-950 opacity-50 flex flex-col items-center justify-center p-1 text-center transition-all overflow-hidden">
+                <i data-lucide="camera" class="w-4 h-4 text-slate-500"></i>
+                <span class="text-[9px] font-semibold mt-1 text-slate-400 truncate w-full">5. Right</span>
+              </button>
+            </div>
+
+            <!-- LIVE WEBRTC CAMERA DISPLAY BOX -->
+            <div class="p-4 bg-slate-950 border border-slate-800 rounded-2xl space-y-3">
+              <div class="flex items-center justify-between text-xs">
+                <span class="font-bold text-white">
+                  Current Angle: <span id="currentStepTitle" class="text-sky-400">1. Rider Live Selfie</span>
+                </span>
+                <span id="currentStepDesc" class="text-[10px] text-slate-400">Take face photo standing next to vehicle</span>
+              </div>
+
+              <!-- Camera Viewport Canvas/Video -->
+              <div class="relative aspect-video bg-black rounded-2xl overflow-hidden border border-slate-800 flex items-center justify-center">
+                <!-- WebRTC Live Stream Video -->
+                <video id="webcamVideo" autoplay playsinline muted class="w-full h-full object-cover hidden"></video>
+
+                <!-- Captured Static Image Preview -->
+                <img id="capturedImgPreview" src="" alt="Captured angle preview" class="w-full h-full object-cover hidden" />
+
+                <!-- Placeholder Screen when Camera Inactive -->
+                <div id="cameraPlaceholder" class="text-center space-y-2 p-6">
+                  <i data-lucide="camera" class="w-10 h-10 text-slate-600 mx-auto"></i>
+                  <p class="text-xs text-slate-400">Tap below to activate device live camera stream</p>
+                </div>
+
+                <!-- Viewfinder Target Box Overlay -->
+                <div id="cameraOverlay" class="hidden absolute inset-0 border-2 border-dashed border-sky-400/50 pointer-events-none rounded-2xl m-3 flex items-center justify-center">
+                  <span id="overlayLabel" class="text-white text-[10px] font-mono bg-slate-950/80 px-3 py-1 rounded-full backdrop-blur">
+                    ALIGN: Rider Face & Bike
+                  </span>
+                </div>
+              </div>
+
+              <!-- Hidden Canvas for Watermarking Canvas Snapshots -->
+              <canvas id="snapshotCanvas" class="hidden"></canvas>
+
+              <!-- Camera Trigger Actions -->
+              <div class="flex gap-2">
+                <button type="button" id="startCamBtn" onclick="startCameraStream()" class="flex-1 py-3 bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold rounded-xl flex items-center justify-center space-x-2 transition shadow-lg shadow-sky-600/20">
+                  <i data-lucide="camera" class="w-4 h-4"></i>
+                  <span id="startCamBtnText">Activate Camera</span>
+                </button>
+
+                <button type="button" id="snapCamBtn" onclick="takePhotoSnapshot()" class="hidden flex-1 py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black rounded-xl flex items-center justify-center space-x-2 shadow-xl shadow-emerald-600/30 transition animate-pulse">
+                  <i data-lucide="camera" class="w-4 h-4"></i>
+                  <span>SNAP PHOTO NOW</span>
+                </button>
+
+                <button type="button" id="flipCamBtn" onclick="toggleCameraFacing()" class="hidden px-4 py-3.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs flex items-center justify-center" title="Flip Camera">
+                  <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- SUBMIT REPORT BUTTON -->
+          <button
+            type="submit"
+            id="submitInspectionBtn"
+            disabled
+            class="w-full py-4 rounded-2xl font-black text-xs uppercase tracking-wider transition-all flex items-center justify-center space-x-2 shadow-2xl bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700"
+          >
+            <span>Submit Daily Inspection Report</span>
+            <i data-lucide="arrow-right" class="w-4 h-4"></i>
+          </button>
+        </form>
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- MODULE 2: TEAM LEAD (TL) & OPERATIONS DASHBOARD                            -->
+    <!-- ========================================================================= -->
+    <section id="tlSection" class="hidden space-y-6">
+      
+      <!-- Top Metrics Bar -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div class="bg-slate-900/80 border border-slate-800 p-4 rounded-2xl">
+          <div class="text-xs text-slate-400 font-semibold">Total Mapped Riders</div>
+          <div id="statTotalRiders" class="text-2xl font-black text-white mt-1">0</div>
+          <div class="text-[10px] text-sky-400 mt-1 font-mono">In Database</div>
+        </div>
+        <div class="bg-slate-900/80 border border-emerald-500/30 p-4 rounded-2xl">
+          <div class="text-xs text-slate-400 font-semibold">Active Shifts Today</div>
+          <div id="statActiveToday" class="text-2xl font-black text-emerald-400 mt-1">0</div>
+          <div class="text-[10px] text-emerald-500/80 mt-1 font-mono">Working / Operational</div>
+        </div>
+        <div class="bg-slate-900/80 border border-rose-500/30 p-4 rounded-2xl">
+          <div class="text-xs text-slate-400 font-semibold">Breakdown Alerts</div>
+          <div id="statBreakdowns" class="text-2xl font-black text-rose-400 mt-1">0</div>
+          <div class="text-[10px] text-rose-400/80 mt-1 font-mono">Needs Repairs</div>
+        </div>
+        <div class="bg-slate-900/80 border border-amber-500/30 p-4 rounded-2xl">
+          <div class="text-xs text-slate-400 font-semibold">Returned / Idle</div>
+          <div id="statIdle" class="text-2xl font-black text-amber-400 mt-1">0</div>
+          <div class="text-[10px] text-amber-400/80 mt-1 font-mono">Parked at Hub</div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- LEFT COLUMN: ONBOARD / DEPLOY RIDER FORM -->
+        <div class="bg-slate-900/80 border border-slate-800 rounded-3xl p-5 space-y-4 h-fit">
+          <div class="flex items-center space-x-2 border-b border-slate-800 pb-3">
+            <i data-lucide="user-plus" class="w-5 h-5 text-sky-400"></i>
+            <h2 class="font-bold text-white text-sm">Onboard / Map New Rider</h2>
+          </div>
+
+          <form id="onboardRiderForm" onsubmit="handleOnboardRider(event)" class="space-y-3.5 text-xs">
+            <div>
+              <label class="block text-slate-300 font-semibold mb-1">Rider Full Name *</label>
+              <input
+                type="text"
+                id="onboardName"
+                placeholder="e.g. Rahul Sharma"
+                class="w-full p-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-sky-500"
+                required
+              />
+            </div>
+
+            <div>
+              <label class="block text-slate-300 font-semibold mb-1">Mobile Phone Number *</label>
+              <input
+                type="tel"
+                id="onboardPhone"
+                placeholder="e.g. 9876543210"
+                class="w-full p-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-sky-500 font-mono"
+                required
+              />
+            </div>
+
+            <div>
+              <label class="block text-slate-300 font-semibold mb-1">Vehicle Plate / Reg # *</label>
+              <input
+                type="text"
+                id="onboardVehicle"
+                placeholder="e.g. KA-01-EQ-4521"
+                class="w-full p-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-sky-500 uppercase font-mono"
+                required
+              />
+            </div>
+
+            <div>
+              <label class="block text-slate-300 font-semibold mb-1">Hub Location</label>
+              <select id="onboardHub" class="w-full p-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none">
+                <option value="Indiranagar Hub">Indiranagar Hub</option>
+                <option value="Koramangala Hub">Koramangala Hub</option>
+                <option value="HSR Layout Hub">HSR Layout Hub</option>
+                <option value="Whitefield Hub">Whitefield Hub</option>
+              </select>
+            </div>
+
+            <button
+              type="submit"
+              class="w-full py-3 bg-sky-600 hover:bg-sky-500 text-white font-bold rounded-xl transition shadow-lg shadow-sky-600/20 text-xs flex items-center justify-center space-x-2 mt-2"
+            >
+              <i data-lucide="user-plus" class="w-4 h-4"></i>
+              <span>Deploy Rider & Map Phone</span>
+            </button>
+          </form>
+        </div>
+
+        <!-- RIGHT COLUMN: ROSTER & INSPECTION AUDIT LIST -->
+        <div class="lg:col-span-2 space-y-6">
+          
+          <!-- 1. Mapped Riders Roster -->
+          <div class="bg-slate-900/80 border border-slate-800 rounded-3xl p-5 space-y-4">
+            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <h3 class="text-sm font-bold text-white flex items-center space-x-2">
+                <i data-lucide="users" class="w-4 h-4 text-sky-400"></i>
+                <span>Active Mapped Fleet Roster</span>
+              </h3>
+
+              <div class="relative w-full sm:w-60">
+                <i data-lucide="search" class="w-3.5 h-3.5 text-slate-500 absolute left-3 top-3"></i>
+                <input
+                  type="text"
+                  id="rosterSearchInput"
+                  oninput="renderRosterTable()"
+                  placeholder="Search name, phone, plate..."
+                  class="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-sky-500"
+                />
+              </div>
+            </div>
+
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs text-slate-300">
+                <thead class="bg-slate-950 text-slate-400 border-b border-slate-800 font-mono">
+                  <tr>
+                    <th class="p-2.5">Rider Name</th>
+                    <th class="p-2.5">Phone</th>
+                    <th class="p-2.5">Vehicle Reg #</th>
+                    <th class="p-2.5">Hub</th>
+                    <th class="p-2.5">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="rosterTableBody" class="divide-y divide-slate-800/60">
+                  <!-- Dynamic rows via JavaScript -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- 2. Daily Inspection Logs -->
+          <div class="bg-slate-900/80 border border-slate-800 rounded-3xl p-5 space-y-4">
+            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <h3 class="text-sm font-bold text-white flex items-center space-x-2">
+                <i data-lucide="file-text" class="w-4 h-4 text-emerald-400"></i>
+                <span>Daily Inspection & Breakdown Logs</span>
+              </h3>
+            </div>
+
+            <div id="inspectionLogsContainer" class="space-y-3">
+              <!-- Dynamic inspection cards via JavaScript -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: SUPABASE CLIENT CONFIGURATION SETUP                                 -->
+  <!-- ========================================================================= -->
+  <div id="configModal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 space-y-5 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div class="flex items-center space-x-2">
+          <i data-lucide="database" class="w-5 h-5 text-sky-400"></i>
+          <h3 class="font-bold text-white text-base">Supabase API Configuration</h3>
+        </div>
+        <button onclick="closeConfigModal()" class="p-1 bg-slate-800 text-slate-400 hover:text-white rounded-lg">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <p class="text-xs text-slate-400 leading-relaxed">
+        Paste your Supabase project credentials to connect this app to your live PostgreSQL database & Cloud Storage.
+      </p>
+
+      <div class="space-y-3 text-xs">
+        <div>
+          <label class="block font-semibold text-slate-300 mb-1">Supabase Project URL</label>
+          <input
+            type="url"
+            id="supabaseUrlInput"
+            placeholder="https://xyzcompany.supabase.co"
+            class="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-white font-mono focus:outline-none focus:border-sky-500"
+          />
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-300 mb-1">Supabase Anon / Public Key</label>
+          <input
+            type="text"
+            id="supabaseKeyInput"
+            placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6..."
+            class="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-white font-mono focus:outline-none focus:border-sky-500"
+          />
+        </div>
+      </div>
+
+      <div class="flex gap-2">
+        <button onclick="saveSupabaseConfig()" class="flex-1 py-3 bg-sky-600 hover:bg-sky-500 text-white font-bold rounded-xl text-xs transition shadow-lg shadow-sky-600/20">
+          Save Credentials & Connect
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- JAVASCRIPT LOGIC -->
+  <script>
+    // -------------------------------------------------------------------------
+    // 1. GLOBAL STATE & PHOTO STEPS DEFINITION
+    // -------------------------------------------------------------------------
+    const PHOTO_STEPS = [
+      { id: 'selfie', label: '1. Rider Live Selfie', desc: 'Take face photo standing next to vehicle', facing: 'user' },
+      { id: 'front', label: '2. Bike Front View', desc: 'Capture headlight & front license plate', facing: 'environment' },
+      { id: 'back', label: '3. Bike Rear View', desc: 'Capture tail light, indicator & rear plate', facing: 'environment' },
+      { id: 'left', label: '4. Bike Left Side View', desc: 'Capture complete left body panel & tires', facing: 'environment' },
+      { id: 'right', label: '5. Bike Right Side View', desc: 'Capture complete right body panel & motor', facing: 'environment' }
+    ];
+
+    let currentStepIndex = 0;
+    let capturedPhotos = {}; // Stores base64 snapshots: { selfie: 'data:image/jpeg...', ... }
+    let selectedStatus = 'Working/Active';
+    let currentRider = null;
+    let cameraStream = null;
+    let currentFacingMode = 'user';
+
+    // Supabase JS Client Instance
+    let supabaseClient = null;
+
+    // Demo Local Fallback Storage
+    let localRiders = [
+      { id: '1', rider_name: 'Rajesh Kumar', phone: '9876543210', vehicle_number: 'KA-01-EQ-4521', hub: 'Indiranagar Hub' },
+      { id: '2', rider_name: 'Amit Verma', phone: '9812345678', vehicle_number: 'KA-05-EV-8890', hub: 'Koramangala Hub' },
+      { id: '3', rider_name: 'Suresh Raina', phone: '9745612309', vehicle_number: 'KA-03-EV-1142', hub: 'HSR Layout Hub' }
+    ];
+
+    let localInspections = [];
+
+    // -------------------------------------------------------------------------
+    // 2. INITIALIZATION & SUPABASE CONFIG
+    // -------------------------------------------------------------------------
+    window.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+      initSupabaseFromStorage();
+      renderRosterTable();
+      renderInspectionLogs();
+    });
+
+    function initSupabaseFromStorage() {
+      const savedUrl = localStorage.getItem('fleetguard_sb_url');
+      const savedKey = localStorage.getItem('fleetguard_sb_key');
+
+      if (savedUrl && savedKey) {
+        document.getElementById('supabaseUrlInput').value = savedUrl;
+        document.getElementById('supabaseKeyInput').value = savedKey;
+
+        try {
+          supabaseClient = supabase.createClient(savedUrl, savedKey);
+          const badge = document.getElementById('connectionBadge');
+          badge.textContent = "Supabase Connected ✓";
+          badge.className = "text-[10px] bg-emerald-500/20 text-emerald-300 font-mono font-semibold px-2 py-0.5 rounded-full border border-emerald-500/30";
+          
+          // Sync existing database tables
+          fetchRidersFromSupabase();
+          fetchInspectionsFromSupabase();
+        } catch (e) {
+          console.warn("Invalid Supabase keys", e);
+        }
+      }
+    }
+
+    function openConfigModal() {
+      document.getElementById('configModal').classList.remove('hidden');
+    }
+
+    function closeConfigModal() {
+      document.getElementById('configModal').classList.add('hidden');
+    }
+
+    function saveSupabaseConfig() {
+      const url = document.getElementById('supabaseUrlInput').value.trim();
+      const key = document.getElementById('supabaseKeyInput').value.trim();
+
+      if (!url || !key) {
+        alert("Please provide both Supabase URL and Key.");
+        return;
+      }
+
+      localStorage.setItem('fleetguard_sb_url', url);
+      localStorage.setItem('fleetguard_sb_key', key);
+      initSupabaseFromStorage();
+      closeConfigModal();
+      alert("Supabase Credentials Saved & Connected Successfully!");
+    }
+
+    // -------------------------------------------------------------------------
+    // 3. TAB SWITCHER
+    // -------------------------------------------------------------------------
+    function switchTab(tab) {
+      stopCameraStream();
+      const riderSec = document.getElementById('riderSection');
+      const tlSec = document.getElementById('tlSection');
+      const tabRiderBtn = document.getElementById('tabRiderBtn');
+      const tabTlBtn = document.getElementById('tabTlBtn');
+
+      if (tab === 'rider') {
+        riderSec.classList.remove('hidden');
+        tlSec.classList.add('hidden');
+        tabRiderBtn.className = "flex-1 sm:flex-none flex items-center justify-center space-x-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-sky-600 text-white transition-all shadow-md";
+        tabTlBtn.className = "flex-1 sm:flex-none flex items-center justify-center space-x-1.5 px-4 py-2 text-xs font-semibold rounded-lg text-slate-400 hover:text-white transition-all";
+      } else {
+        riderSec.classList.add('hidden');
+        tlSec.classList.remove('hidden');
+        tabTlBtn.className = "flex-1 sm:flex-none flex items-center justify-center space-x-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-sky-600 text-white transition-all shadow-md";
+        tabRiderBtn.className = "flex-1 sm:flex-none flex items-center justify-center space-x-1.5 px-4 py-2 text-xs font-semibold rounded-lg text-slate-400 hover:text-white transition-all";
+        renderRosterTable();
+        renderInspectionLogs();
+      }
+    }
+
+    // -------------------------------------------------------------------------
+    // 4. RIDER LOOKUP & STEP VALIDATION
+    // -------------------------------------------------------------------------
+    async function lookupRiderByPhone(phoneVal) {
+      const trimmed = phoneVal.trim();
+      const step2 = document.getElementById('step2Container');
+      const step3 = document.getElementById('step3Container');
+      const badge = document.getElementById('riderBadge');
+      const warn = document.getElementById('riderNotFoundWarn');
+
+      if (trimmed.length < 3) {
+        currentRider = null;
+        badge.classList.add('hidden');
+        warn.classList.add('hidden');
+        disableSteps();
+        return;
+      }
+
+      let found = null;
+
+      if (supabaseClient) {
+        const { data } = await supabaseClient
+          .from('riders')
+          .select('*')
+          .eq('phone', trimmed)
+          .single();
+        found = data;
+      } else {
+        found = localRiders.find(r => r.phone.includes(trimmed) || r.rider_name.toLowerCase().includes(trimmed.toLowerCase()));
+      }
+
+      if (found) {
+        currentRider = found;
+        document.getElementById('badgeRiderName').textContent = found.rider_name;
+        document.getElementById('badgeVehicleDetails').textContent = `Vehicle: ${found.vehicle_number} • ${found.hub || 'Hub'}`;
+        badge.classList.remove('hidden');
+        warn.classList.add('hidden');
+
+        step2.classList.remove('opacity-50', 'pointer-events-none');
+        step3.classList.remove('opacity-50', 'pointer-events-none');
+        validateSubmitButton();
+      } else {
+        currentRider = null;
+        badge.classList.add('hidden');
+        warn.classList.remove('hidden');
+        disableSteps();
+      }
+    }
+
+    function disableSteps() {
+      document.getElementById('step2Container').classList.add('opacity-50', 'pointer-events-none');
+      document.getElementById('step3Container').classList.add('opacity-50', 'pointer-events-none');
+      validateSubmitButton();
+    }
+
+    function setStatus(statusVal) {
+      selectedStatus = statusVal;
+      const btnWorking = document.getElementById('statusBtn_Working');
+      const btnBreakdown = document.getElementById('statusBtn_Breakdown');
+      const btnServicing = document.getElementById('statusBtn_Servicing');
+      const btnReturned = document.getElementById('statusBtn_Returned');
+      const dropdown = document.getElementById('reasonDropdownContainer');
+
+      [btnWorking, btnBreakdown, btnServicing, btnReturned].forEach(b => {
+        b.className = "p-3.5 rounded-2xl border border-slate-800 bg-slate-950 text-slate-400 hover:border-slate-700 text-left flex items-start space-x-3 transition";
+      });
+
+      if (statusVal === 'Working/Active') {
+        btnWorking.className = "p-3.5 rounded-2xl border border-sky-500 bg-sky-600/20 text-white shadow-lg text-left flex items-start space-x-3 transition";
+        dropdown.classList.add('hidden');
+      } else {
+        if (statusVal === 'Breakdown') btnBreakdown.className = "p-3.5 rounded-2xl border border-rose-500 bg-rose-600/20 text-white shadow-lg text-left flex items-start space-x-3 transition";
+        if (statusVal === 'Servicing') btnServicing.className = "p-3.5 rounded-2xl border border-amber-500 bg-amber-600/20 text-white shadow-lg text-left flex items-start space-x-3 transition";
+        if (statusVal === 'Returned/Idle') btnReturned.className = "p-3.5 rounded-2xl border border-sky-500 bg-sky-600/20 text-white shadow-lg text-left flex items-start space-x-3 transition";
+        dropdown.classList.remove('hidden');
+      }
+
+      validateSubmitButton();
+    }
+
+    function handleReasonSelectChange(val) {
+      const customText = document.getElementById('customReasonText');
+      if (val === 'Other Reason') {
+        customText.classList.remove('hidden');
+      } else {
+        customText.classList.add('hidden');
+      }
+      validateSubmitButton();
+    }
+
+    // -------------------------------------------------------------------------
+    // 5. WEBRTC LIVE CAMERA STREAM & CANVAS SNAPSHOT
+    // -------------------------------------------------------------------------
+    async function startCameraStream() {
+      const step = PHOTO_STEPS[currentStepIndex];
+      const video = document.getElementById('webcamVideo');
+      const placeholder = document.getElementById('cameraPlaceholder');
+      const previewImg = document.getElementById('capturedImgPreview');
+      const overlay = document.getElementById('cameraOverlay');
+      const startBtn = document.getElementById('startCamBtn');
+      const snapBtn = document.getElementById('snapCamBtn');
+      const flipBtn = document.getElementById('flipCamBtn');
+
+      stopCameraStream();
+
+      try {
+        currentFacingMode = step.facing;
+        const constraints = {
+          video: { facingMode: currentFacingMode, width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: false
+        };
+
+        cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
+        video.srcObject = cameraStream;
+        video.classList.remove('hidden');
+        if (currentFacingMode === 'user') {
+          video.classList.add('video-mirror');
+        } else {
+          video.classList.remove('video-mirror');
+        }
+
+        placeholder.classList.add('hidden');
+        previewImg.classList.add('hidden');
+        overlay.classList.remove('hidden');
+
+        startBtn.classList.add('hidden');
+        snapBtn.classList.remove('hidden');
+        flipBtn.classList.remove('hidden');
+
+      } catch (err) {
+        alert("Camera access denied or device hardware unavailable. Please allow camera permissions in browser.");
+        console.error(err);
+      }
+    }
+
+    function stopCameraStream() {
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+        cameraStream = null;
+      }
+      document.getElementById('webcamVideo').classList.add('hidden');
+      document.getElementById('cameraOverlay').classList.add('hidden');
+      document.getElementById('startCamBtn').classList.remove('hidden');
+      document.getElementById('snapCamBtn').classList.add('hidden');
+      document.getElementById('flipCamBtn').classList.add('hidden');
+    }
+
+    function toggleCameraFacing() {
+      currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+      startCameraStream();
+    }
+
+    function takePhotoSnapshot() {
+      const step = PHOTO_STEPS[currentStepIndex];
+      const video = document.getElementById('webcamVideo');
+      const canvas = document.getElementById('snapshotCanvas');
+
+      canvas.width = video.videoWidth || 800;
+      canvas.height = video.videoHeight || 600;
+      const ctx = canvas.getContext('2d');
+
+      // Mirror selfie if front facing
+      if (currentFacingMode === 'user') {
+        ctx.translate(canvas.width, 0);
+        ctx.scale(-1, 1);
+      }
+
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      // Reset matrix for watermark
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+      // Stamp dynamic watermark
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.8)';
+      ctx.fillRect(0, canvas.height - 40, canvas.width, 40);
+      ctx.fillStyle = '#38bdf8';
+      ctx.font = 'bold 14px sans-serif';
+      ctx.fillText(`FLEETGUARD LIVE SNAP | ${new Date().toLocaleTimeString()} | ${currentRider?.vehicle_number || 'VEHICLE'}`, 15, canvas.height - 15);
+
+      const base64Data = canvas.toDataURL('image/jpeg', 0.85);
+      capturedPhotos[step.id] = base64Data;
+
+      stopCameraStream();
+
+      // Update Preview UI
+      const previewImg = document.getElementById('capturedImgPreview');
+      previewImg.src = base64Data;
+      previewImg.classList.remove('hidden');
+      document.getElementById('cameraPlaceholder').classList.add('hidden');
+
+      // Auto Advance if not last step
+      if (currentStepIndex < PHOTO_STEPS.length - 1) {
+        selectStepIndex(currentStepIndex + 1);
+      } else {
+        updateStepProgressUI();
+      }
+    }
+
+    function selectStepIndex(idx) {
+      currentStepIndex = idx;
+      const step = PHOTO_STEPS[idx];
+
+      document.getElementById('currentStepTitle').textContent = step.label;
+      document.getElementById('currentStepDesc').textContent = step.desc;
+      document.getElementById('overlayLabel').textContent = `ALIGN: ${step.label}`;
+
+      const previewImg = document.getElementById('capturedImgPreview');
+      const placeholder = document.getElementById('cameraPlaceholder');
+
+      stopCameraStream();
+
+      if (capturedPhotos[step.id]) {
+        previewImg.src = capturedPhotos[step.id];
+        previewImg.classList.remove('hidden');
+        placeholder.classList.add('hidden');
+        document.getElementById('startCamBtnText').textContent = 'Retake Live Photo';
+      } else {
+        previewImg.classList.add('hidden');
+        placeholder.classList.remove('hidden');
+        document.getElementById('startCamBtnText').textContent = 'Activate Camera';
+      }
+
+      updateStepProgressUI();
+    }
+
+    function updateStepProgressUI() {
+      PHOTO_STEPS.forEach((step, idx) => {
+        const thumb = document.getElementById(`photoThumb_${idx}`);
+        const isCaptured = !!capturedPhotos[step.id];
+        const isCurrent = currentStepIndex === idx;
+
+        if (isCaptured) {
+          thumb.className = "relative aspect-square rounded-xl border border-emerald-500 bg-emerald-950/40 flex flex-col items-center justify-center p-1 text-center transition-all overflow-hidden";
+          thumb.innerHTML = `
+            <img src="${capturedPhotos[step.id]}" class="w-full h-full object-cover rounded-lg" />
+            <span class="absolute inset-0 bg-slate-950/40 flex items-center justify-center">
+              <i data-lucide="check" class="w-4 h-4 text-emerald-400"></i>
+            </span>
+          `;
+        } else if (isCurrent) {
+          thumb.className = "relative aspect-square rounded-xl border border-sky-500 bg-sky-950/50 flex flex-col items-center justify-center p-1 text-center transition-all overflow-hidden ring-2 ring-sky-500/40";
+          thumb.innerHTML = `
+            <i data-lucide="camera" class="w-4 h-4 text-sky-400"></i>
+            <span class="text-[9px] font-semibold mt-1 text-slate-300 truncate w-full">${idx + 1}. ${step.id}</span>
+          `;
+        } else {
+          thumb.className = "relative aspect-square rounded-xl border border-slate-800 bg-slate-950 opacity-50 flex flex-col items-center justify-center p-1 text-center transition-all overflow-hidden";
+          thumb.innerHTML = `
+            <i data-lucide="camera" class="w-4 h-4 text-slate-500"></i>
+            <span class="text-[9px] font-semibold mt-1 text-slate-400 truncate w-full">${idx + 1}. ${step.id}</span>
+          `;
+        }
+      });
+
+      lucide.createIcons();
+      const count = Object.keys(capturedPhotos).length;
+      document.getElementById('photoCountBadge').textContent = `${count} / 5 Snaps`;
+      validateSubmitButton();
+    }
+
+    function validateSubmitButton() {
+      const submitBtn = document.getElementById('submitInspectionBtn');
+      const photoCount = Object.keys(capturedPhotos).length;
+
+      let validReason = true;
+      if (selectedStatus !== 'Working/Active') {
+        const selectVal = document.getElementById('returnReasonSelect').value;
+        if (!selectVal) validReason = false;
+        if (selectVal === 'Other Reason' && !document.getElementById('customReasonText').value.trim()) validReason = false;
+      }
+
+      if (currentRider && photoCount === 5 && validReason) {
+        submitBtn.disabled = false;
+        submitBtn.className = "w-full py-4 rounded-2xl font-black text-xs uppercase tracking-wider transition-all flex items-center justify-center space-x-2 shadow-2xl bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer shadow-emerald-600/20";
+      } else {
+        submitBtn.disabled = true;
+        submitBtn.className = "w-full py-4 rounded-2xl font-black text-xs uppercase tracking-wider transition-all flex items-center justify-center space-x-2 shadow-2xl bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700";
+      }
+    }
+
+    // -------------------------------------------------------------------------
+    // 6. FORM SUBMISSION (SUPABASE OR LOCAL)
+    // -------------------------------------------------------------------------
+    async function handleInspectionSubmit(e) {
+      e.preventDefault();
+      if (!currentRider) return;
+
+      const submitBtn = document.getElementById('submitInspectionBtn');
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Uploading & Saving Telemetry...";
+
+      const reasonSelect = document.getElementById('returnReasonSelect').value;
+      const customText = document.getElementById('customReasonText').value;
+      const finalReason = selectedStatus === 'Working/Active' 
+        ? 'N/A - Active Shift' 
+        : (reasonSelect === 'Other Reason' ? customText : reasonSelect);
+
+      const dateStr = new Date().toISOString().split('T')[0];
+
+      let photoUrls = { ...capturedPhotos };
+
+      // Upload photos to Supabase Storage if configured
+      if (supabaseClient) {
+        try {
+          for (const [angle, base64] of Object.entries(capturedPhotos)) {
+            // Convert base64 to Blob
+            const blob = await (await fetch(base64)).blob();
+            const filePath = `${dateStr}/${currentRider.phone}_${angle}_${Date.now()}.jpg`;
+
+            const { data, error } = await supabaseClient.storage
+              .from('inspection-photos')
+              .upload(filePath, blob, { contentType: 'image/jpeg', upsert: true });
+
+            if (!error) {
+              const { data: publicUrlData } = supabaseClient.storage
+                .from('inspection-photos')
+                .getPublicUrl(filePath);
+              photoUrls[angle] = publicUrlData.publicUrl;
+            }
+          }
+
+          // Insert DB Record
+          await supabaseClient.from('daily_inspections').insert([{
+            rider_phone: currentRider.phone,
+            rider_name: currentRider.rider_name,
+            vehicle_number: currentRider.vehicle_number,
+            status: selectedStatus,
+            return_reason: finalReason,
+            selfie_url: photoUrls.selfie || '',
+            front_url: photoUrls.front || '',
+            back_url: photoUrls.back || '',
+            left_url: photoUrls.left || '',
+            right_url: photoUrls.right || '',
+            inspection_date: dateStr
+          }]);
+
+        } catch (err) {
+          console.error("Supabase insert error, falling back to local state", err);
+        }
+      }
+
+      // Local fallback state append
+      const newRecord = {
+        id: 'INS-' + Date.now().toString().slice(-4),
+        rider_name: currentRider.rider_name,
+        phone: currentRider.phone,
+        vehicle_number: currentRider.vehicle_number,
+        status: selectedStatus,
+        return_reason: finalReason,
+        photos: photoUrls,
+        created_at: new Date().toISOString()
+      };
+      localInspections.unshift(newRecord);
+
+      // Show Success Card
+      document.getElementById('riderFormCard').classList.add('hidden');
+      document.getElementById('riderSuccessCard').classList.remove('hidden');
+      document.getElementById('successRiderSubtext').textContent = `Logged for ${currentRider.rider_name} (${currentRider.vehicle_number})`;
+      document.getElementById('successStatusVal').textContent = selectedStatus;
+
+      if (selectedStatus !== 'Working/Active') {
+        document.getElementById('successReasonRow').classList.remove('hidden');
+        document.getElementById('successReasonVal').textContent = finalReason;
+      } else {
+        document.getElementById('successReasonRow').classList.add('hidden');
+      }
+    }
+
+    function resetRiderForm() {
+      capturedPhotos = {};
+      currentStepIndex = 0;
+      selectedStatus = 'Working/Active';
+      currentRider = null;
+
+      document.getElementById('riderPhoneInput').value = '';
+      document.getElementById('customReasonText').value = '';
+      document.getElementById('returnReasonSelect').value = '';
+
+      document.getElementById('riderFormCard').classList.remove('hidden');
+      document.getElementById('riderSuccessCard').classList.add('hidden');
+
+      lookupRiderByPhone('');
+      setStatus('Working/Active');
+      selectStepIndex(0);
+    }
+
+    // -------------------------------------------------------------------------
+    // 7. TEAM LEAD (TL) ROSTER & INSPECTION AUDIT
+    // -------------------------------------------------------------------------
+    async function fetchRidersFromSupabase() {
+      if (!supabaseClient) return;
+      const { data, error } = await supabaseClient.from('riders').select('*');
+      if (!error && data) {
+        localRiders = data;
+        renderRosterTable();
+      }
+    }
+
+    async function fetchInspectionsFromSupabase() {
+      if (!supabaseClient) return;
+      const { data, error } = await supabaseClient.from('daily_inspections').select('*').order('created_at', { ascending: false });
+      if (!error && data) {
+        localInspections = data;
+        renderInspectionLogs();
+      }
+    }
+
+    async function handleOnboardRider(e) {
+      e.preventDefault();
+      const name = document.getElementById('onboardName').value.trim();
+      const phone = document.getElementById('onboardPhone').value.trim();
+      const vehicle = document.getElementById('onboardVehicle').value.trim().toUpperCase();
+      const hub = document.getElementById('onboardHub').value;
+
+      if (!name || !phone || !vehicle) return;
+
+      const newRider = { rider_name: name, phone, vehicle_number: vehicle, hub };
+
+      if (supabaseClient) {
+        try {
+          const { data, error } = await supabaseClient.from('riders').insert([newRider]).select();
+          if (error) throw error;
+          alert(`Rider ${name} deployed successfully to Supabase!`);
+        } catch (err) {
+          alert("Error onboarding rider: " + err.message);
+        }
+      } else {
+        localRiders.unshift({ id: Date.now().toString(), ...newRider });
+        alert(`Rider ${name} deployed (Demo Mode)!`);
+      }
+
+      document.getElementById('onboardName').value = '';
+      document.getElementById('onboardPhone').value = '';
+      document.getElementById('onboardVehicle').value = '';
+
+      renderRosterTable();
+    }
+
+    function renderRosterTable() {
+      const tbody = document.getElementById('rosterTableBody');
+      const search = document.getElementById('rosterSearchInput').value.toLowerCase();
+
+      const filtered = localRiders.filter(r => 
+        r.rider_name.toLowerCase().includes(search) ||
+        r.phone.includes(search) ||
+        r.vehicle_number.toLowerCase().includes(search)
+      );
+
+      document.getElementById('statTotalRiders').textContent = localRiders.length;
+
+      tbody.innerHTML = filtered.map(r => `
+        <tr class="hover:bg-slate-800/40">
+          <td class="p-2.5 font-bold text-white">${r.rider_name}</td>
+          <td class="p-2.5 font-mono text-slate-400">${r.phone}</td>
+          <td class="p-2.5 font-mono text-sky-400 font-bold">${r.vehicle_number}</td>
+          <td class="p-2.5 text-slate-400">${r.hub || 'N/A'}</td>
+          <td class="p-2.5">
+            <button onclick="removeRider('${r.phone}')" class="text-rose-400 hover:underline text-[11px]">Unmap</button>
+          </td>
+        </tr>
+      `).join('');
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-500">No riders mapped yet.</td></tr>`;
+      }
+    }
+
+    async function removeRider(phone) {
+      if (!confirm("Unmap this rider from system?")) return;
+
+      if (supabaseClient) {
+        await supabaseClient.from('riders').delete().eq('phone', phone);
+      }
+      localRiders = localRiders.filter(r => r.phone !== phone);
+      renderRosterTable();
+    }
+
+    function renderInspectionLogs() {
+      const container = document.getElementById('inspectionLogsContainer');
+
+      const activeCount = localInspections.filter(i => i.status === 'Working/Active').length;
+      const breakdownCount = localInspections.filter(i => i.status === 'Breakdown').length;
+      const idleCount = localInspections.filter(i => i.status === 'Returned/Idle' || i.status === 'Servicing').length;
+
+      document.getElementById('statActiveToday').textContent = activeCount;
+      document.getElementById('statBreakdowns').textContent = breakdownCount;
+      document.getElementById('statIdle').textContent = idleCount;
+
+      if (localInspections.length === 0) {
+        container.innerHTML = `<div class="p-8 text-center text-slate-500 text-xs">No daily inspection reports submitted yet today.</div>`;
+        return;
+      }
+
+      container.innerHTML = localInspections.map(ins => {
+        const isWorking = ins.status === 'Working/Active';
+        const badgeColor = isWorking 
+          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' 
+          : ins.status === 'Breakdown'
+          ? 'bg-rose-500/10 text-rose-400 border-rose-500/30'
+          : 'bg-amber-500/10 text-amber-400 border-amber-500/30';
+
+        const photos = ins.photos || {
+          selfie: ins.selfie_url,
+          front: ins.front_url,
+          back: ins.back_url,
+          left: ins.left_url,
+          right: ins.right_url
+        };
+
+        return `
+          <div class="p-4 bg-slate-950 border border-slate-800 rounded-2xl space-y-3">
+            <div class="flex items-center justify-between">
+              <div>
+                <span class="text-sm font-bold text-white">${ins.rider_name}</span>
+                <span class="text-xs text-slate-400 font-mono ml-2">(${ins.phone || ins.rider_phone})</span>
+              </div>
+              <span class="px-2.5 py-1 text-xs font-bold rounded-full border ${badgeColor}">
+                ${ins.status}
+              </span>
+            </div>
+
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs bg-slate-900 p-2.5 rounded-xl border border-slate-800">
+              <div>
+                <span class="text-slate-500 text-[10px] block">VEHICLE PLATE</span>
+                <span class="font-mono font-bold text-sky-400">${ins.vehicle_number}</span>
+              </div>
+              <div>
+                <span class="text-slate-500 text-[10px] block">TIME</span>
+                <span class="font-mono text-slate-300">${new Date(ins.created_at || Date.now()).toLocaleTimeString()}</span>
+              </div>
+              <div class="col-span-2 md:col-span-1">
+                <span class="text-slate-500 text-[10px] block">REASON</span>
+                <span class="text-amber-300 font-semibold truncate block">${ins.return_reason || 'N/A'}</span>
+              </div>
+            </div>
+
+            <!-- 5 Angle Image Grid -->
+            <div class="grid grid-cols-5 gap-1.5 pt-1">
+              ${['selfie', 'front', 'back', 'left', 'right'].map(angle => `
+                <div class="aspect-square bg-slate-900 border border-slate-800 rounded-lg overflow-hidden relative">
+                  ${photos[angle] ? `<img src="${photos[angle]}" class="w-full h-full object-cover" />` : `<div class="w-full h-full flex items-center justify-center text-[9px] text-slate-600">N/A</div>`}
+                  <span class="absolute bottom-0 inset-x-0 bg-slate-950/80 text-[8px] text-slate-300 text-center py-0.5 uppercase font-mono">${angle}</span>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+{
+  "name": "LSN Harish Team",
+  "description": "LSN Harish Team Fleet Operations & Inspection Portal with live camera verification, Supabase integration, and comprehensive Team Lead ops portal for 500+ riders.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
