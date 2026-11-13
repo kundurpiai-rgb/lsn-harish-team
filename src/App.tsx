@@ -161,16 +161,11 @@ export default function App() {
   // Admin TL Account Management State
   const [isManageTlModalOpen, setIsManageTlModalOpen] = useState(false);
   const [appUsersList, setAppUsersList] = useState<any[]>([
-    { username: 'harish.kundurpi@loadshare.net', password: 'admin123', name: 'Harish Kundurpi (Super Admin)', role: 'admin', hub: 'All Hubs', created_at: new Date().toISOString() },
-    { username: 'tl.hosaroad@loadshare.net', password: 'tl123', name: 'Ramesh TL', role: 'tl', hub: 'Hosa Road', created_at: new Date().toISOString() },
-    { username: 'tl.hoodi@loadshare.net', password: 'tl123', name: 'Suresh TL', role: 'tl', hub: 'Hoodi', created_at: new Date().toISOString() }
+    { username: 'harish.kundurpi@loadshare.net', email: 'harish.kundurpi@loadshare.net', password: 'admin123', name: 'Harish Kundurpi (Super Admin)', role: 'admin', hub: 'All Hubs', created_at: new Date().toISOString() },
+    { username: 'sunil9945868340@gmail.com', email: 'sunil9945868340@gmail.com', password: 'Tl@123', name: 'Sunil TL', role: 'tl', hub: 'Hosa Road', created_at: new Date().toISOString() },
+    { username: 'rb5501103@gmail.com', email: 'rb5501103@gmail.com', password: 'Tl@123', name: 'RB TL', role: 'tl', hub: 'Hongasandra', created_at: new Date().toISOString() },
+    { username: 'suhaslucky25@gmail.com', email: 'suhaslucky25@gmail.com', password: 'Tl@123', name: 'Suhas TL', role: 'tl', hub: 'Hoodi', created_at: new Date().toISOString() }
   ]);
-  const [newTlUsername, setNewTlUsername] = useState('');
-  const [newTlPassword, setNewTlPassword] = useState('');
-  const [newTlName, setNewTlName] = useState('');
-  const [newTlHub, setNewTlHub] = useState('Hosa Road');
-  const [newTlRole, setNewTlRole] = useState<'tl' | 'admin'>('tl');
-
   // Rider Inspection Form State
   const [selectedStatus, setSelectedStatus] = useState<string>('Working/Active');
   const [returnReason, setReturnReason] = useState<string>('');
@@ -252,8 +247,8 @@ export default function App() {
 
   // Initialize Supabase from LocalStorage on mount & set up real-time polling
   useEffect(() => {
-   const savedUrl = localStorage.getItem('fleetguard_sb_url') || 'https://jqtasgezlxstgqxxdmgr.supabase.co';
-const savedKey = localStorage.getItem('fleetguard_sb_key') || 'sb_publishable_7_9rttKkrxApNKHVsrlfbg_bZUEzy5r';
+    const savedUrl = 'https://jqtasgezlxstgqxxdmgr.supabase.co';
+    const savedKey = 'sb_publishable_7_9rttKkrxApNKHVsrlfbg_bZUEzy5r';
     if (savedUrl && savedKey) {
       setSupabaseUrl(savedUrl);
       setSupabaseKey(savedKey);
@@ -411,7 +406,7 @@ const savedKey = localStorage.getItem('fleetguard_sb_key') || 'sb_publishable_7_
     const email = tlEmail.trim().toLowerCase();
     const pwd = tlPassword.trim();
     if (!email || !pwd) {
-      alert('Please enter Username/Email and Password.');
+      alert('Please enter Email ID and Password.');
       return;
     }
 
@@ -421,7 +416,7 @@ const savedKey = localStorage.getItem('fleetguard_sb_key') || 'sb_publishable_7_
         const { data } = await supabaseClient
           .from('app_users')
           .select('*')
-          .eq('username', email)
+          .or(`username.ilike.${email},email.ilike.${email}`)
           .eq('password', pwd);
         if (data && data.length > 0) {
           foundUser = data[0];
@@ -433,28 +428,33 @@ const savedKey = localStorage.getItem('fleetguard_sb_key') || 'sb_publishable_7_
 
     if (!foundUser) {
       foundUser = appUsersList.find(
-        (u) => String(u.username || '').toLowerCase() === email && u.password === pwd
+        (u) =>
+          (String(u.username || '').toLowerCase() === email ||
+            String(u.email || '').toLowerCase() === email) &&
+          u.password === pwd
       );
     }
 
-    const isSuperAdmin = email === 'harish.kundurpi@loadshare.net' || foundUser?.username?.toLowerCase() === 'harish.kundurpi@loadshare.net' || foundUser?.role === 'admin';
+    const isSuperAdmin =
+      email === 'harish.kundurpi@loadshare.net' ||
+      foundUser?.username?.toLowerCase() === 'harish.kundurpi@loadshare.net' ||
+      foundUser?.role === 'admin';
 
-    if (foundUser || email === 'harish.kundurpi@loadshare.net') {
+    if (foundUser) {
       const userObj: AuthUser = {
-        name: foundUser?.name || 'Harish Kundurpi',
-        phone: foundUser?.phone || '9800000000',
+        name: foundUser.name || email.split('@')[0].toUpperCase(),
+        phone: foundUser.phone || '9800000000',
         role: isSuperAdmin ? 'admin' : 'tl',
-        hub: foundUser?.hub || 'All Hubs',
+        hub: foundUser.hub || 'All Hubs',
         username: email
       };
       setCurrentUser(userObj);
       localStorage.setItem('fleetguard_user', JSON.stringify(userObj));
       setActiveTab('submitted');
     } else {
-      alert('Login Failed: Invalid Username or Password.');
+      alert('Login Failed: Invalid Email ID or Password.');
     }
   };
-
   const handleAddTlAccount = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTlUsername || !newTlPassword || !newTlName) {

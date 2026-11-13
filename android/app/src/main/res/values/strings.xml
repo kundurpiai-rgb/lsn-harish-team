@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">LSN Harish Team</string>
+    <string name="title_activity_main">LSN Harish Team</string>
+    <string name="package_name">com.lsnharish.app</string>
+    <string name="custom_url_scheme">com.lsnharish.app</string>
+</resources>
