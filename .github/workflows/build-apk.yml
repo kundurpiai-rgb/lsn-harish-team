@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 ﻿name: Build Android APK
+=======
+name: Build Android APK
+>>>>>>> cdb8459ea4e02cc1e360e287c7d389aebd7d3367
 on:
   push:
     branches: [ main, master ]
